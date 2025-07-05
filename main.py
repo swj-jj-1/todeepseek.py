@@ -1,6 +1,10 @@
 import streamlit as st
 import random
 from time import sleep
+import base64
+from io import BytesIO
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 # 设置页面配置
 st.set_page_config(
@@ -79,8 +83,21 @@ custom_css = """
         100% { transform: translateY(0px); }
     }
 
+    .angry-emoji {
+        font-size: 3rem;
+        animation: shake 0.5s infinite;
+    }
+
+    @keyframes shake {
+        0% { transform: rotate(0deg); }
+        25% { transform: rotate(10deg); }
+        50% { transform: rotate(0deg); }
+        75% { transform: rotate(-10deg); }
+        100% { transform: rotate(0deg); }
+    }
+
     /* 全屏特效样式 */
-    .full-screen-effect {
+    .full-screen-overlay {
         position: fixed;
         top: 0;
         left: 0;
@@ -111,22 +128,9 @@ custom_css = """
         padding: 2rem;
     }
 
-    .angry-emoji {
-        font-size: 3rem;
-        animation: shake 0.5s infinite;
-    }
-
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
-    }
-
-    @keyframes shake {
-        0% { transform: rotate(0deg); }
-        25% { transform: rotate(10deg); }
-        50% { transform: rotate(0deg); }
-        75% { transform: rotate(-10deg); }
-        100% { transform: rotate(0deg); }
     }
 </style>
 """
@@ -182,13 +186,79 @@ BRAND_DATA = {
 }
 
 
+# 创建开心特效图像
+def create_happy_effect_image():
+    # 创建一个透明背景的图像
+    img = Image.new('RGBA', (800, 400), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(img)
+
+    # 使用大号字体绘制"开心!"文本
+    try:
+        font = ImageFont.truetype("arial.ttf", 120)
+    except:
+        font = ImageFont.load_default()
+
+    # 绘制带有阴影的文本
+    draw.text((202, 152), "开 心 !", fill="black", font=font)
+    draw.text((200, 150), "开 心 !", fill="#FF6B6B", font=font)
+
+    # 添加一些装饰元素
+    for i in range(20):
+        x = random.randint(0, 800)
+        y = random.randint(0, 400)
+        size = random.randint(10, 50)
+        draw.ellipse([(x, y), (x + size, y + size)], fill="#FFD166", outline="#06D6A0")
+
+    return img
+
+
+# 创建愤怒表情包图像
+def create_angry_effect_image():
+    # 创建一个白色背景的图像
+    img = Image.new('RGB', (800, 600), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    # 在网格中填充愤怒表情
+    emoji_size = 60
+    for row in range(10):
+        for col in range(15):
+            x = col * emoji_size + 10
+            y = row * emoji_size + 10
+
+            # 绘制旋转的表情符号
+            angle = random.randint(-20, 20)
+            rotated_emoji = Image.new('RGBA', (emoji_size, emoji_size), (255, 255, 255, 0))
+            d = ImageDraw.Draw(rotated_emoji)
+            d.text((20, 20), "😠", fill="black", font=ImageFont.load_default())
+            rotated_emoji = rotated_emoji.rotate(angle, expand=True)
+
+            # 将旋转后的表情粘贴到主图像
+            img.paste(rotated_emoji, (x, y), rotated_emoji)
+
+    return img
+
+
 # 显示全屏开心特效
 def show_happy_effect():
-    st.markdown("""
-        <div class="full-screen-effect">
-            <div class="happy-text">开 心 !</div>
+    # 创建图像
+    img = create_happy_effect_image()
+
+    # 将图像转换为Base64以便在HTML中使用
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+
+    # 显示全屏覆盖
+    st.markdown(
+        f"""
+        <div class="full-screen-overlay">
+            <img src="data:image/png;base64,{img_str}" style="max-width: 100%; height: auto;">
         </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
+
+    # 等待3秒
     sleep(3)
     st.session_state.show_effect = False
     st.rerun()
@@ -196,19 +266,25 @@ def show_happy_effect():
 
 # 显示愤怒表情包
 def show_angry_effect():
-    st.markdown("""
-        <div class="full-screen-effect">
-            <div class="angry-container">
-    """, unsafe_allow_html=True)
+    # 创建图像
+    img = create_angry_effect_image()
 
-    # 生成100个愤怒表情
-    for _ in range(100):
-        st.markdown(f"<div class='angry-emoji'>😠</div>", unsafe_allow_html=True)
+    # 将图像转换为Base64以便在HTML中使用
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
 
-    st.markdown("""
-            </div>
+    # 显示全屏覆盖
+    st.markdown(
+        f"""
+        <div class="full-screen-overlay">
+            <img src="data:image/png;base64,{img_str}" style="max-width: 100%; height: auto;">
         </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
+
+    # 等待3秒
     sleep(3)
     st.session_state.show_effect = False
     st.rerun()
@@ -323,32 +399,28 @@ if st.session_state.mood is None and not st.session_state.game_active and not st
     with col1:
         if st.button("😖 不好", key="bad", use_container_width=True,
                      help="心情不好？来杯奶茶治愈一下吧！",
-                     type="primary",
-                     kwargs={'class': 'mood-btn'}):
+                     type="primary"):
             st.session_state.mood = "bad"
             st.rerun()
 
     with col2:
         if st.button("😐 一般", key="normal", use_container_width=True,
                      help="心情一般？玩个小游戏放松一下吧！",
-                     type="primary",
-                     kwargs={'class': 'mood-btn'}):
+                     type="primary"):
             st.session_state.mood = "normal"
             st.rerun()
 
     with col3:
         if st.button("😊 还可以", key="good", use_container_width=True,
                      help="心情还可以？来点小惊喜！",
-                     type="primary",
-                     kwargs={'class': 'mood-btn'}):
+                     type="primary"):
             st.session_state.mood = "good"
             st.rerun()
 
     with col4:
         if st.button("😄 非常好", key="excellent", use_container_width=True,
                      help="心情非常好？保持住！",
-                     type="primary",
-                     kwargs={'class': 'mood-btn'}):
+                     type="primary"):
             st.session_state.mood = "excellent"
             st.rerun()
 
@@ -359,40 +431,26 @@ if st.session_state.mood == "bad" and not st.session_state.selected_brand and no
 
     # 显示品牌选择卡片
     for brand in ["古茗", "茶百道", "爷爷不泡茶", "蜜雪冰城", "瑞幸咖啡"]:
-        with st.container():
-            st.markdown(f"""
-                <div class="brand-card" onclick="selectBrand('{brand}')">
-                    <h3>{brand}</h3>
-                    <ul>
-            """, unsafe_allow_html=True)
+        if st.button(f"选择 {brand}", key=f"brand_{brand}", use_container_width=True):
+            st.session_state.selected_brand = brand
+            st.session_state.show_effect = True
+            st.rerun()
 
-            # 显示推荐菜单
+        with st.expander(f"{brand} 推荐菜单", expanded=False):
             for item in BRAND_DATA[brand]["recommendations"]:
-                st.markdown(f"<li><b>{item['name']}</b> - {item['reason']}</li>", unsafe_allow_html=True)
-
-            st.markdown("</ul></div>", unsafe_allow_html=True)
+                st.markdown(f"**{item['name']}** - {item['reason']}")
 
     # 添加微信发swj请吃小蛋糕
+    if st.button("微信发swj请吃小蛋糕", key="cake", use_container_width=True):
+        st.session_state.selected_brand = "微信发swj请吃小蛋糕"
+        st.session_state.show_effect = True
+        st.rerun()
+
     st.markdown("""
-        <div class="brand-card" style="background-color: #FFF9C4;">
-            <h3>微信发swj请吃小蛋糕</h3>
+        <div style="background-color: #FFF9C4; padding: 1rem; border-radius: 10px; margin-top: 1rem;">
             <p>有时候一杯奶茶不够，还需要甜蜜的小蛋糕来治愈！</p>
             <p>快给swj发消息："心情不好，求小蛋糕治愈！" 🍰</p>
         </div>
-    """, unsafe_allow_html=True)
-
-    # 品牌选择的JavaScript处理
-    st.markdown("""
-        <script>
-        function selectBrand(brand) {
-            const data = {brand: brand};
-            fetch('/select_brand', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            }).then(() => window.location.reload());
-        }
-        </script>
     """, unsafe_allow_html=True)
 
 # 心情一般时的处理
@@ -404,28 +462,14 @@ elif st.session_state.mood == "normal" and not st.session_state.show_effect:
         col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown("""
-                <div class="brand-card">
-                    <h3>蜜雪冰城</h3>
-                    <ul>
-                        <li><b>冰鲜柠檬水</b> - 超值解渴神器，清爽一整天</li>
-                        <li><b>草莓摇摇奶昔</b> - 草莓果酱与冰淇淋的完美融合</li>
-                        <li><b>珍珠奶茶</b> - 经典款永不过时，平价中的战斗机</li>
-                    </ul>
-                </div>
-            """, unsafe_allow_html=True)
+            st.subheader("蜜雪冰城")
+            for item in BRAND_DATA["蜜雪冰城"]["recommendations"]:
+                st.markdown(f"**{item['name']}** - {item['reason']}")
 
         with col2:
-            st.markdown("""
-                <div class="brand-card">
-                    <h3>瑞幸咖啡</h3>
-                    <ul>
-                        <li><b>生椰拿铁</b> - 网红爆款，椰香与咖啡的完美邂逅</li>
-                        <li><b>厚乳拿铁</b> - 浓郁奶香，咖啡爱好者的首选</li>
-                        <li><b>陨石拿铁</b> - 黑糖风味与咖啡的独特碰撞</li>
-                    </ul>
-                </div>
-            """, unsafe_allow_html=True)
+            st.subheader("瑞幸咖啡")
+            for item in BRAND_DATA["瑞幸咖啡"]["recommendations"]:
+                st.markdown(f"**{item['name']}** - {item['reason']}")
 
         st.success("选好了奶茶，现在玩个小游戏放松一下吧！")
 
@@ -450,7 +494,7 @@ elif st.session_state.mood == "good" and not st.session_state.show_effect:
 # 心情非常好时的处理
 elif st.session_state.mood == "excellent" and not st.session_state.show_effect:
     st.subheader("心情这么好还想喝奶茶？", anchor=False)
-    st.error("心情已经非常好了，再喝奶茶小心乐极生悲哦！")
+    st.error("心情已经非常好了，再喝奶茶小心挨骂哦！")
 
     if st.button("我就要喝！", use_container_width=True, type="primary"):
         st.session_state.show_effect = True
@@ -460,7 +504,7 @@ elif st.session_state.mood == "excellent" and not st.session_state.show_effect:
         show_angry_effect()
 
 # 品牌选择后的全屏特效
-if st.session_state.selected_brand and not st.session_state.show_effect:
+if st.session_state.selected_brand and st.session_state.mood == "bad" and not st.session_state.show_effect:
     st.session_state.show_effect = True
     st.rerun()
 
