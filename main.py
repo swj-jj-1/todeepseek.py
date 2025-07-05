@@ -132,6 +132,62 @@ custom_css = """
         from { opacity: 0; }
         to { opacity: 1; }
     }
+
+    /* 新增的爆炸效果样式 */
+    .explosion {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        pointer-events: none;
+        animation: explode 1.5s forwards;
+    }
+
+    @keyframes explode {
+        0% {
+            transform: translate(0, 0) scale(1);
+            opacity: 1;
+        }
+        100% {
+            transform: translate(var(--tx), var(--ty)) scale(0.1);
+            opacity: 0;
+        }
+    }
+
+    /* 新增的飘动文字效果 */
+    .floating-text {
+        position: absolute;
+        font-size: 3rem;
+        font-weight: bold;
+        color: #FF6B6B;
+        text-shadow: 3px 3px 0 #FFD166;
+        animation: float-around 10s linear infinite, fade-out 10s forwards;
+        opacity: 1;
+    }
+
+    @keyframes float-around {
+        0% {
+            transform: translate(0, 0) rotate(0deg);
+        }
+        25% {
+            transform: translate(100px, -50px) rotate(10deg);
+        }
+        50% {
+            transform: translate(200px, 0) rotate(0deg);
+        }
+        75% {
+            transform: translate(100px, 50px) rotate(-10deg);
+        }
+        100% {
+            transform: translate(0, 0) rotate(0deg);
+        }
+    }
+
+    @keyframes fade-out {
+        0% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { opacity: 0; }
+    }
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
@@ -186,77 +242,116 @@ BRAND_DATA = {
 }
 
 
-# 创建开心特效图像
-def create_happy_effect_image():
-    # 创建一个透明背景的图像
-    img = Image.new('RGBA', (800, 400), (255, 255, 255, 0))
-    draw = ImageDraw.Draw(img)
+# 创建爆炸效果
+def create_explosion_effect():
+    # 创建爆炸效果的JavaScript代码
+    explosion_js = """
+    <script>
+    // 创建爆炸效果
+    function createExplosion() {
+        const overlay = document.querySelector('.full-screen-overlay');
+        const colors = ['#FF6B6B', '#FFD166', '#06D6A0', '#118AB2', '#073B4C'];
 
-    # 使用大号字体绘制"开心!"文本
-    try:
-        font = ImageFont.truetype("arial.ttf", 120)
-    except:
-        font = ImageFont.load_default()
+        // 创建100个爆炸粒子
+        for (let i = 0; i < 100; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'explosion';
 
-    # 绘制带有阴影的文本
-    draw.text((202, 152), "开 心 !", fill="black", font=font)
-    draw.text((200, 150), "开 心 !", fill="#FF6B6B", font=font)
+            // 随机设置粒子位置
+            const centerX = overlay.clientWidth / 2;
+            const centerY = overlay.clientHeight / 2;
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 200 + Math.random() * 300;
+            const tx = Math.cos(angle) * distance;
+            const ty = Math.sin(angle) * distance;
 
-    # 添加一些装饰元素
-    for i in range(20):
-        x = random.randint(0, 800)
-        y = random.randint(0, 400)
-        size = random.randint(10, 50)
-        draw.ellipse([(x, y), (x + size, y + size)], fill="#FFD166", outline="#06D6A0")
+            // 设置粒子样式
+            particle.style.setProperty('--tx', `${tx}px`);
+            particle.style.setProperty('--ty', `${ty}px`);
+            particle.style.left = `${centerX}px`;
+            particle.style.top = `${centerY}px`;
+            particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.width = `${10 + Math.random() * 30}px`;
+            particle.style.height = particle.style.width;
 
-    return img
+            overlay.appendChild(particle);
+
+            // 粒子动画结束后移除
+            setTimeout(() => {
+                particle.remove();
+            }, 1500);
+        }
+
+        // 添加爆炸音效（模拟）
+        const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
+        audio.volume = 0.3;
+        audio.play().catch(e => console.log('Audio play failed:', e));
+    }
+
+    // 页面加载后立即执行
+    setTimeout(createExplosion, 100);
+    </script>
+    """
+    return explosion_js
 
 
-# 创建愤怒表情包图像
-def create_angry_effect_image():
-    # 创建一个白色背景的图像
-    img = Image.new('RGB', (800, 600), (255, 255, 255))
-    draw = ImageDraw.Draw(img)
+# 创建飘动文字效果
+def create_floating_text_effect():
+    # 创建飘动文字效果的JavaScript代码
+    floating_text_js = """
+    <script>
+    // 创建飘动的"开心"文字
+    function createFloatingText() {
+        const overlay = document.querySelector('.full-screen-overlay');
+        const texts = ['开', '心', '!', '开', '心', '!', '🥤', '🧋', '😊'];
 
-    # 在网格中填充愤怒表情
-    emoji_size = 60
-    for row in range(10):
-        for col in range(15):
-            x = col * emoji_size + 10
-            y = row * emoji_size + 10
+        // 创建30个飘动文字
+        for (let i = 0; i < 30; i++) {
+            const textEl = document.createElement('div');
+            textEl.className = 'floating-text';
 
-            # 绘制旋转的表情符号
-            angle = random.randint(-20, 20)
-            rotated_emoji = Image.new('RGBA', (emoji_size, emoji_size), (255, 255, 255, 0))
-            d = ImageDraw.Draw(rotated_emoji)
-            d.text((20, 20), "😠", fill="black", font=ImageFont.load_default())
-            rotated_emoji = rotated_emoji.rotate(angle, expand=True)
+            // 随机设置位置
+            const startX = Math.random() * overlay.clientWidth;
+            const startY = Math.random() * overlay.clientHeight;
 
-            # 将旋转后的表情粘贴到主图像
-            img.paste(rotated_emoji, (x, y), rotated_emoji)
+            textEl.style.left = `${startX}px`;
+            textEl.style.top = `${startY}px`;
+            textEl.style.fontSize = `${2 + Math.random() * 4}rem`;
+            textEl.style.color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+            textEl.style.animationDuration = `${5 + Math.random() * 10}s`;
+            textEl.style.animationDelay = `${Math.random() * 2}s`;
+            textEl.textContent = texts[Math.floor(Math.random() * texts.length)];
 
-    return img
+            overlay.appendChild(textEl);
+
+            // 文字动画结束后移除
+            setTimeout(() => {
+                textEl.remove();
+            }, 10000);
+        }
+    }
+
+    // 页面加载后立即执行
+    setTimeout(createFloatingText, 100);
+    </script>
+    """
+    return floating_text_js
 
 
 # 显示全屏开心特效
 def show_happy_effect():
-    # 创建图像
-    img = create_happy_effect_image()
+    # 创建飘动文字效果
+    floating_html = """
+    <div class="full-screen-overlay" style="flex-direction: column; background: linear-gradient(135deg, #FFD166, #FF6B6B, #06D6A0);">
+        <div class="happy-text" style="z-index: 10000;">开 心 !</div>
+    </div>
+    """
 
-    # 将图像转换为Base64以便在HTML中使用
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
+    # 组合HTML和JavaScript
+    full_html = floating_html + create_floating_text_effect()
 
     # 显示全屏覆盖
-    st.markdown(
-        f"""
-        <div class="full-screen-overlay">
-            <img src="data:image/png;base64,{img_str}" style="max-width: 100%; height: auto;">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown(full_html, unsafe_allow_html=True)
 
     # 等待3秒
     sleep(3)
@@ -264,25 +359,23 @@ def show_happy_effect():
     st.rerun()
 
 
-# 显示愤怒表情包
+# 显示愤怒特效（爆炸效果）
 def show_angry_effect():
-    # 创建图像
-    img = create_angry_effect_image()
+    # 创建爆炸效果
+    explosion_html = """
+    <div class="full-screen-overlay" style="background: rgba(255, 255, 255, 0.95);">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                   font-size: 6rem; font-weight: bold; color: #FF6B6B; z-index: 10000;">
+            😠 不准喝!
+        </div>
+    </div>
+    """
 
-    # 将图像转换为Base64以便在HTML中使用
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
+    # 组合HTML和JavaScript
+    full_html = explosion_html + create_explosion_effect()
 
     # 显示全屏覆盖
-    st.markdown(
-        f"""
-        <div class="full-screen-overlay">
-            <img src="data:image/png;base64,{img_str}" style="max-width: 100%; height: auto;">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown(full_html, unsafe_allow_html=True)
 
     # 等待3秒
     sleep(3)
