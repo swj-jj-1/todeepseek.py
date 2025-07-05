@@ -1,7 +1,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+
+# 修复：在导入matplotlib前设置非交互式后端
+import matplotlib as mpl
+mpl.use('Agg')  # 为无界面环境设置Agg后端
 import matplotlib.pyplot as plt
+
 import seaborn as sns
 import plotly.express as px
 
